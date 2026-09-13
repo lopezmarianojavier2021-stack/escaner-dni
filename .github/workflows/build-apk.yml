@@ -1,1 +1,60 @@
-    
+name: Compilar APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Descomprimir el proyecto subido como .zip
+        run: |
+          unzip -q -o EscanerDNIAccesible-proyecto.zip -d tmp_extract
+          cp -r tmp_extract/dniscanner/app .
+          cp tmp_extract/dniscanner/build.gradle .
+          cp tmp_extract/dniscanner/settings.gradle .
+          cp tmp_extract/dniscanner/gradle.properties .
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.6'
+
+      - name: Compilar APK (debug)
+        run: gradle assembleDebug --no-daemon
+
+      - name: Subir APK como artifact (respaldo)
+        uses: actions/upload-artifact@v4
+        with:
+          name: EscanerDNI-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Renombrar APK con enlace fijo
+        run: cp app/build/outputs/apk/debug/app-debug.apk EscanerDNI.apk
+
+      - name: Publicar/actualizar la última versión descargable
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ultima-version
+          name: Última versión del Escáner DNI
+          body: >
+            Instalable generado automáticamente desde el último cambio subido al repositorio.
+            Este enlace siempre apunta a la versión más reciente.
+          files: EscanerDNI.apk
